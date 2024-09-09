@@ -20,13 +20,6 @@ def start_login(userPhoneNumber,password):#通过手机号登录
             'message': '密码错误'
         })
     else:
-        # # 定义JWT负载
-        # payload = {
-        #     'user_id':u.userID,
-        #     'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=piece)  # 令牌过期时间为1小时后
-        # }
-        # # 生成JWT令牌
-        # token = jwt.encode(payload, SECRET_KEY, algorithm=algorithm)
         token=create_access_token(identity=u.userID)
         return jsonify({
         'code': 0,

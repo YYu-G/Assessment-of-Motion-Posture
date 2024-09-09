@@ -253,7 +253,7 @@ def exercise_counter(pose_model, detector_model_path, detector_model_file, video
     # detect_model = LSTM(17*2, 8, 2, 3, model.device)
     detect_model = LSTM(INPUT_DIM, HIDDEN_DIM, NUM_LAYERS, OUTPUT_DIM).to(DEVICE)#创建模型+权重
     model_path = os.path.join(detector_model_path, detector_model_file)#加载权重
-    model_weight = torch.load(model_path)
+    model_weight = torch.load(model_path, map_location=torch.device('cpu'))
     detect_model.load_state_dict(model_weight)#应用加载的权重
 
     # Open the video file or camera 打开视频文件或摄像头

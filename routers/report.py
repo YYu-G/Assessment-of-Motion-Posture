@@ -1,4 +1,11 @@
 import base64
+import os
+
+from tensorflow import timestamp
+
+from config import temp_path
+from datetime import datetime
+import time
 from flask_socketio import SocketIO, emit
 from flask import Blueprint, request, jsonify
 from config import socketio
@@ -10,39 +17,61 @@ report = Blueprint('report', __name__)
 def shape():
     data=request.form
     owner=data['userID']
-    if 'file' not in request.files:
+    if 'file1' not in request.files:
         return jsonify({
             'code': 1,
             'message': '图片部分'
         })
-    photo=request.files['file']
-    return report_shape(owner, photo,1)
+    if 'file2' not in request.files:
+        return jsonify({
+            'code': 1,
+            'message': '图片部分'
+        })
+    photo1=request.files['file1']
+    photo2=request.files['file2']
+
+    timestamp = time.time()
+    temp_name1 = f"{timestamp}_{photo1.filename}"
+    temp_name2 = f"{timestamp}_{photo2.filename}"
+
+    tp1 = os.path.join(temp_path, temp_name1)
+    tp2 = os.path.join(temp_path, temp_name2)
+    photo1.save(dst=tp1)#保存图片
+    photo2.save(dst=tp2)
+    return report_shape(owner, temp_name1,temp_name2,tp1,tp2,1)
 
 @report.route('/fitness',methods=['POST'])
 def fitness():
     data=request.form
     owner=data['userID']
-    mID=data['modelID']
-    if 'file' not in request.files:
+    #mID=data['modelID']
+    if 'video' not in request.files:
         return jsonify({
             'code': 1,
-            'message': '图片部分'
+            'message': '视频部分'
         })
     video=request.files['video']
+    timestamp=time.time()
+    temp_name=f'{timestamp}_{video.filename}'
+    tp=os.path.join(temp_path,temp_name)
 
-    return report_fitness(owner, video,1)
+    return report_fitness(owner,video.filename,tp,1)
 
 @report.route('/yoga',methods=['POST'])
 def yoga():
     data=request.form
     owner=data['userID']
-    if 'file' not in request.files:
+    if 'video' not in request.files:
         return jsonify({
             'code': 1,
-            'message': '图片部分'
+            'message': '视频部分'
         })
     video=request.files['video']
-    return report_yoga(owner, video,1)
+    timestamp = time.time()
+    temp_name = f'{timestamp}_{video.filename}'
+    tp = os.path.join(temp_path, temp_name)
+
+    return report_yoga(owner,video.filename,tp,1)
 
 # @report.route('/fit_mess')
 @socketio.on('fitness')

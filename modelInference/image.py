@@ -3,6 +3,7 @@ import os
 import shutil  # 用于移动文件
 
 
+
 def shape_image(model_path,image_path,save_path,text_path):
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
