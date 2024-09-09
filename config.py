@@ -32,7 +32,7 @@ jwt=JWTManager(app)
 #文件相对路径
 rep_file_path='reportFile'
 model_file_path='modelFile'
-temp_path='temp'
+temp_path='tp'
 
 # 创建一个 SocketIO 对象，并将其与 Flask 应用绑定
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins='*')

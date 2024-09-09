@@ -3,12 +3,11 @@ import datetime
 
 import cv2
 from ultralytics import YOLO
-import cvzone
-import tensorflow as tf
-#from tensorflow.keras.models import load_model
+# import cvzone
+# import tensorflow as tf
+# from tensorflow.keras.models import load_model
 import numpy as np
 import time  # Import time module for frame rate control
-
 
 yoga_poses = [
     "Downward-Facing Dog Pose",
@@ -119,17 +118,16 @@ yoga_poses = [
     "Yogic Sleep Pose"
 ]
 
-
 classNames = [
     "person", "bicycle", "car", "motorbike", "aeroplane", "bus", "train", "truck", "boat",
     "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
     "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack", "umbrella",
     "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball", "kite", "baseball bat",
-    "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup","fork",
-    "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli","carrot", "hot dog", 
-    "pizza", "donut", "cake", "chair", "sofa", "pottedplant", "bed","diningtable", "toilet",
-    "tvmonitor", "laptop", "mouse", "remote", "keyboard", "mobile phone","microwave","oven","toaster",
-    "sink", "refrigerator", "book", "clock", "vase", "scissors","teddy bear", "hair drier", "toothbrush"
+    "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork",
+    "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli", "carrot", "hot dog",
+    "pizza", "donut", "cake", "chair", "sofa", "pottedplant", "bed", "diningtable", "toilet",
+    "tvmonitor", "laptop", "mouse", "remote", "keyboard", "mobile phone", "microwave", "oven", "toaster",
+    "sink", "refrigerator", "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
 ]
 
 import time
@@ -138,6 +136,7 @@ from ultralytics import YOLO
 import cvzone
 import numpy as np
 import tensorflow as tf
+
 
 # 载入模型，只需一次
 def load_yoga_model(model_path):
@@ -165,7 +164,7 @@ def load_yoga_model(model_path):
     return model
 
 
-def imgProcess(image,yoga_model):
+def imgProcess(image, yoga_model):
     target_size = (64, 64)
     img = cv2.resize(image, target_size)
     img = img / 255.0
@@ -174,9 +173,10 @@ def imgProcess(image,yoga_model):
     predicted_class_index = np.argmax(prediction)
     return predicted_class_index
 
-def yogaPoseDetect(pose_mode,detect_model,video_path=0,video_save_dir=None):
+
+def yogaPoseDetect(pose_mode, detect_model, video_path=0, video_save_dir=None):
     model = YOLO(pose_mode)
-    yoga_model=load_yoga_model(detect_model)
+    yoga_model = load_yoga_model(detect_model)
 
     cap = cv2.VideoCapture(video_path)
     cap.set(3, 1280)
@@ -186,7 +186,6 @@ def yogaPoseDetect(pose_mode,detect_model,video_path=0,video_save_dir=None):
     desired_fps = 30
     frame_time = 1.0 / desired_fps
     last_frame_time = time.time()
-
 
     # For save result video
     output = None
@@ -224,12 +223,12 @@ def yogaPoseDetect(pose_mode,detect_model,video_path=0,video_save_dir=None):
 
                     if class_name == "person":
                         cropped_img = img[y1:y2, x1:x2]
-                        predicted_pose = imgProcess(cropped_img,yoga_model)
+                        predicted_pose = imgProcess(cropped_img, yoga_model)
                         cvzone.putTextRect(img, f'{yoga_poses[predicted_pose]}', (max(0, x1), max(40, y1)))
 
             cv2.imshow("Cam footage. Press 'Q' to exit.", img)
             if output is not None:
-               output.write(img)
+                output.write(img)
             last_frame_time = current_time
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -237,20 +236,19 @@ def yogaPoseDetect(pose_mode,detect_model,video_path=0,video_save_dir=None):
 
     cap.release()
     if output is not None:
-       output.release()
+        output.release()
     cv2.destroyAllWindows()
 
 
-
-if __name__ == '__main__':
-    yogaPoseDetect(pose_mode='yolov8n.pt', #关键点检测模型
-                   detect_model='yoga-model.h5',#训练好的瑜伽评估模型
-                   video_path=0,#需要检测的视频文件路径，若为0，则打开摄像头
-                   video_save_dir='./results'  #保存结果视频路径
-    )
-
+# if __name__ == '__main__':
+#     yogaPoseDetect(pose_mode='yolov8n.pt',  # 关键点检测模型
+#                    detect_model='yoga-model.h5',  # 训练好的瑜伽评估模型
+#                    video_path=0,  # 需要检测的视频文件路径，若为0，则打开摄像头
+#                    video_save_dir='./results'  # 保存结果视频路径
+#                    )
 
 
- 
+
+
 
 
