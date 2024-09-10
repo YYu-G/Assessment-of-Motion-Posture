@@ -385,7 +385,7 @@ if __name__ == '__main__':
       exercise_counter(pose_model='modelFile/yolov8s-pose.pt',  # pose模型
                        detector_model_path='../modelFile',  # 训练完的检测姿态模型路径
                        detector_model_file='best_model2.pt',  #模型名称
-                       video_file='../checkpoint/videos/pullup-2.mp4',  # 视频文件 若为字符串0，则表示打开摄像头
+                       video_file='../temp/test_video.mp4',  # 视频文件 若为字符串0，则表示打开摄像头
                        video_save_dir='reptortFile',  # 视频保存路径
                        video_save_name = 'save_1'
                        )

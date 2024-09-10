@@ -1,8 +1,8 @@
-from flask import jsonify
+from flask import jsonify, send_file
 from datetime import datetime
 from moviepy.video.compositing.concatenate import concatenate_videoclips
 import time
-
+from moviepy.editor import VideoFileClip
 
 from config import rep_file_path,temp_path
 from daos.model import model_dao
@@ -10,10 +10,11 @@ from daos.reportData import report_dao
 from moviepy.editor import ImageSequenceClip
 import os
 
-import image.image
 
+from modelInference.image import image
 from modelInference.counter import exercise_counter
 from modelInference.yoga import yogaPoseDetect
+
 
 import shutil
 
@@ -24,7 +25,7 @@ def report_shape(ownerID,photo_name1,photo_name2,tp1,tp2,model_id):
     # model=model_dao.search_model_by_id(model_id)
     # model_path=os.path.join(model_file_path,model.modelFileURL)#获得模型路径
 
-    degree_list,dir=image.image.image('../modelFile/yolov8s-pose',tp1,tp2)#生成分析图片
+    degree_list,dir=image('../modelFile/yolov8s-pose',tp1,tp2)#生成分析图片
 
     t=time.time()
     name1=f'{t}_{photo_name1}'
@@ -68,6 +69,8 @@ def report_fitness(ownerID,video_name,tp,model_id):
     des=''
 
     timestamp = time.time()
+    temp_name = f'{timestamp}_{video_name}'
+    t_path = os.path.join(temp_path, temp_name)
     save_name=f'{timestamp}_{video_name}'
     save_path=os.path.join(rep_file_path,save_name)
 
@@ -79,8 +82,16 @@ def report_fitness(ownerID,video_name,tp,model_id):
                     detector_model_path='modelFile',  # 训练完的检测姿态模型路径
                     detector_model_file='best_model2.pt',#模型名称
                     video_file=tp,  # 视频文件
-                    video_save_dir=rep_file_path,
-                     video_save_name=save_name) # 视频保存路径)
+                    video_save_dir=temp_path,
+                     video_save_name=temp_name) # 视频保存路径)
+
+    # 使用moviepy转换视频
+    clip = VideoFileClip(t_path)
+    clip.write_videofile(save_path, codec='libx264')
+
+    # 清理上传的临时文件
+    clip.close()
+    #os.remove(temp_path)
 
     # 获取当前的日期和时间
     now = datetime.now()
@@ -88,9 +99,9 @@ def report_fitness(ownerID,video_name,tp,model_id):
     current_date = now.date()
     id = report_dao.add_report(ownerID, 'fitness', des, save_name, current_date)
 
+    #return send_file(save_path)
     return jsonify({
-        'url':f'/api/download/{save_name}'
-    })
+       'url':f'/api/download/{save_name}'})
     #return send_file(save_path,mimetype='video/mp4')
 
 def report_yoga(owner,video_name,tp,model_id):
@@ -101,11 +112,21 @@ def report_yoga(owner,video_name,tp,model_id):
     #model_path=os.path.join(model_file_path,model_name)
 
     timestamp = time.time()
+    temp_name = f'{timestamp}_{video_name}'
+    t_path = os.path.join(temp_path, temp_name)
     save_name=f"{timestamp}_{video_name}"
     save_path=os.path.join(rep_file_path,save_name)
 
-    yogaPoseDetect('modelFile/yolov8n.pt','modelFile/yoga-model.h5',tp,save_path)
+    yogaPoseDetect('modelFile/yolov8n.pt','modelFile/yoga-model.h5',tp,t_path)
     #yogaPoseDetect('modelFile/yolov8n.pt', 'modelFile/yoga-model.h5', 0, save_path)
+
+    # 使用moviepy转换视频
+    clip = VideoFileClip(t_path)
+    clip.write_videofile(save_path, codec='libx264')
+
+    # 清理上传的临时文件
+    clip.close()
+    # os.remove(temp_path)
 
     # 获取当前的日期和时间
     now = datetime.now()
