@@ -9,12 +9,11 @@ from daos.model import model_dao
 from daos.reportData import report_dao
 from moviepy.editor import ImageSequenceClip
 import os
-
+import numpy as np
 
 from modelInference.image import image
 from modelInference.counter import exercise_counter
-from modelInference.yoga import yogaPoseDetect
-
+from modelInference.yoga import yogaPoseDetect,yogaPoseDetectByFrames
 
 import shutil
 
@@ -117,7 +116,7 @@ def report_yoga(owner,video_name,tp,model_id):
     save_name=f"{timestamp}_{video_name}"
     save_path=os.path.join(rep_file_path,save_name)
 
-    yogaPoseDetect('modelFile/yolov8n.pt','modelFile/yoga-model.h5',tp,t_path)
+    yogaPoseDetect('modelFile/yolov8n.pt','modelFile/yoga-model.h5',tp,temp_path,temp_name)
     #yogaPoseDetect('modelFile/yolov8n.pt', 'modelFile/yoga-model.h5', 0, save_path)
 
     # 使用moviepy转换视频
@@ -140,85 +139,194 @@ def report_yoga(owner,video_name,tp,model_id):
     })
 
 # 一个函数来生成视频文件并保存
-def create_video_from_frames(frames):
+def create_video_from_frames(id,type):
+
+    frames_path=os.path.join(temp_path,f'save_{id}.txt')
+    # 打开帧缓存文件
+    with open(frames_path, 'r+') as file:
+        # 读取文件内容
+        content = file.readlines()
+        # 解析帧列表
+    t_frames_dir = [line.strip().split(',') for line in content]
+
+    frames = []
+    with open(frames_path, 'r+') as file:
+        # 读取文件内容
+        content = file.readlines()
+
+    for line in content:
+        # 去除行尾的换行符
+        frame_path = line.strip()
+        f = np.load(frame_path)
+        frames.append(f)
+
     clips = [ImageSequenceClip(m, fps=24).set_duration(1) for m in frames]
     final_clip = concatenate_videoclips(clips, method="compose")
     timestamp = datetime.utcnow().isoformat()
     filename=f'{timestamp}.mp4'
     filepath = os.path.join(rep_file_path, filename)
     final_clip.write_videofile(filepath, fps=24)
+
+    #生成报告
+    # 获取当前的日期和时间
+    des=''
+    now = datetime.now()
+    # 只获取日期部分
+    current_date = now.date()
+    id = report_dao.add_report(id, type, des, filename, current_date)
+
     return filename
 
-def report_fitness_realtime(image_bytes,id):
-    timestamp = datetime.utcnow().isoformat()
+def report_fitness_realtime(frames_path,id):
+    t = time.time()
 
-    tempname = f'{timestamp}_{id}.jpg'
-    temppath = os.path.join(temp_path, tempname)
-
-    filename=f'{timestamp}_{id}.jpg'
-    filepath=os.path.join(temp_path,filename)
-
-    with open(temppath, 'wb') as f:#保存上传帧
-        f.write(image_bytes)
-
-    op = {
-
-    }
-
-    with open(filepath, 'wb') as f:  # 保存处理后的帧
-        f.write()
-
-    # 打开帧缓存文件，如果文件不存在则创建一个新文件
-    frames_name=f'{id}.txt'
-    frames_path=os.path.join(temp_path,frames_name)
+    frames = []
     with open(frames_path, 'r+') as file:
         # 读取文件内容
         content = file.readlines()
-    # 解析帧列表
-    frames = [line.strip().split(',') for line in content]
-    frames.append(filepath)#添加新帧
-    # 写回修改后的内容
-    with open(frames_path, 'w') as file:
+
+        for line in content:
+        # 去除行尾的换行符
+            frame_path = line.strip()
+            f = np.load(frame_path)
+            frames.append(f)
+
+    save_frames = yogaPoseDetectByFrames('modelFile/yolov8n.pt', 'modelFile/yoga-model.h5', frames)
+
+    t_frames_name = f'save_{id}.txt'
+    save_frames_path = os.path.join(temp_path, t_frames_name)
+
+    # 打开帧缓存文件，如果文件不存在则创建一个新文件
+    with open(save_frames_path, 'r+') as file:
+        # 读取文件内容
+        content = file.readlines()
+        # 解析帧列表
+    t_frames_dir = [line.strip().split(',') for line in content]
+
+    for i, frame in enumerate(save_frames):
+        f_path = os.path.join(temp_path, f'{t}_save_frames_{i}.npy')
+        np.save(f_path, frame)  # 保存每一帧
+        t_frames_dir.append(f_path)  # 添加新帧
+
+        # 写回修改后的内容
+    with open(save_frames_path, 'w') as file:
         for line in frames:
             file.write(','.join(str(item) for item in line) + '\n')
 
-    return {
+    # frames = [line.strip().split(',') for line in content]
+    return save_frames
 
-    }
 
-def report_yoga_realtime(image_bytes,id):
-    timestamp = datetime.utcnow().isoformat()
+def report_yoga_realtime(frames_path,id):
+    t = time.time()
 
-    tempname = f'{timestamp}_{id}.jpg'
-    temppath = os.path.join(temp_path, tempname)
-
-    filename = f'{timestamp}_{id}.jpg'
-    filepath = os.path.join(temp_path, filename)
-
-    with open(temppath, 'wb') as f:#保存上传帧
-        f.write(image_bytes)
-
-    op={
-
-    }
-
-    with open(filepath, 'wb') as f:#保存处理后的帧
-        f.write()
-
-    # 打开帧缓存文件，如果文件不存在则创建一个新文件
-    frames_name = f'{id}.txt'
-    frames_path = os.path.join(temp_path, frames_name)
+    frames = []
     with open(frames_path, 'r+') as file:
         # 读取文件内容
         content = file.readlines()
-    # 解析帧列表
-    frames = [line.strip().split(',') for line in content]
-    frames.append(filepath)  # 添加新帧
-    # 写回修改后的内容
-    with open(frames_path, 'w') as file:
+
+        for line in content:
+            # 去除行尾的换行符
+            frame_path = line.strip()
+            f = np.load(frame_path)
+            frames.append(f)
+
+    save_frames = yogaPoseDetectByFrames('modelFile/yolov8n.pt', 'modelFile/yoga-model.h5', frames)
+
+
+    t_frames_name=f'save_{id}.txt'
+    save_frames_path=os.path.join(temp_path,t_frames_name)
+
+    #打开帧缓存文件，如果文件不存在则创建一个新文件
+    with open(save_frames_path, 'r+') as file:
+        # 读取文件内容
+        content = file.readlines()
+        # 解析帧列表
+    t_frames_dir = [line.strip().split(',') for line in content]
+
+    for i, frame in enumerate(save_frames):
+        f_path = os.path.join(temp_path, f'{t}_save_frames_{i}.npy')
+        np.save(f_path, frame)#保存每一帧
+        t_frames_dir.append(f_path)#添加新帧
+
+        # 写回修改后的内容
+    with open(save_frames_path, 'w') as file:
         for line in frames:
             file.write(','.join(str(item) for item in line) + '\n')
 
-    return {
+    # frames = [line.strip().split(',') for line in content]
+    return save_frames
 
-    }
+# def report_fitness_realtime(image_bytes,id):
+#     timestamp = datetime.utcnow().isoformat()
+#
+#     tempname = f'{timestamp}_{id}.jpg'
+#     temppath = os.path.join(temp_path, tempname)
+#
+#     filename=f'{timestamp}_{id}.jpg'
+#     filepath=os.path.join(temp_path,filename)
+#
+#     with open(temppath, 'wb') as f:#保存上传帧
+#         f.write(image_bytes)
+#
+#     op = {
+#
+#     }
+#
+#     with open(filepath, 'wb') as f:  # 保存处理后的帧
+#         f.write()
+#
+#     # 打开帧缓存文件，如果文件不存在则创建一个新文件
+#     frames_name=f'{id}.txt'
+#     frames_path=os.path.join(temp_path,frames_name)
+#     with open(frames_path, 'r+') as file:
+#         # 读取文件内容
+#         content = file.readlines()
+#     # 解析帧列表
+#     frames = [line.strip().split(',') for line in content]
+#     frames.append(filepath)#添加新帧
+#     # 写回修改后的内容
+#     with open(frames_path, 'w') as file:
+#         for line in frames:
+#             file.write(','.join(str(item) for item in line) + '\n')
+#
+#     return {
+#
+#     }
+#
+# def report_yoga_realtime(image_bytes,id):
+#     timestamp = datetime.utcnow().isoformat()
+#
+#     tempname = f'{timestamp}_{id}.jpg'
+#     temppath = os.path.join(temp_path, tempname)
+#
+#     filename = f'{timestamp}_{id}.jpg'
+#     filepath = os.path.join(temp_path, filename)
+#
+#     with open(temppath, 'wb') as f:#保存上传帧
+#         f.write(image_bytes)
+#
+#     op={
+#
+#     }
+#
+#     with open(filepath, 'wb') as f:#保存处理后的帧
+#         f.write()
+#
+#     # 打开帧缓存文件，如果文件不存在则创建一个新文件
+#     frames_name = f'{id}.txt'
+#     frames_path = os.path.join(temp_path, frames_name)
+#     with open(frames_path, 'r+') as file:
+#         # 读取文件内容
+#         content = file.readlines()
+#     # 解析帧列表
+#     frames = [line.strip().split(',') for line in content]
+#     frames.append(filepath)  # 添加新帧
+#     # 写回修改后的内容
+#     with open(frames_path, 'w') as file:
+#         for line in frames:
+#             file.write(','.join(str(item) for item in line) + '\n')
+#
+#     return {
+#
+#     }

@@ -1,5 +1,6 @@
 import base64
 import os
+import numpy as np
 
 
 from config import temp_path
@@ -8,7 +9,8 @@ import time
 from flask_socketio import SocketIO, emit
 from flask import Blueprint, request, jsonify
 from config import socketio
-from servicers.report import report_shape,report_fitness,report_yoga,report_fitness_realtime,report_yoga_realtime
+from servicers.report import (report_shape,report_fitness,report_yoga,
+                              report_fitness_realtime,report_yoga_realtime,create_video_from_frames)
 
 report = Blueprint('report', __name__)
 
@@ -73,46 +75,97 @@ def yoga():
     video.save(tp)
     return report_yoga(owner,video.filename,tp,1)
 
-# @report.route('/fit_mess')
 @socketio.on('fitness')
-def handle_fitness_message(frame_data,id):#Base64 编码的字符串/二进制数据
-    # 解码 base64 数据
-    image_bytes = base64.b64decode(frame_data.split(',')[1])
-    report_fitness_realtime(image_bytes,id)
+def fitness_realtime(data):
+    frames_data = data['frames']
+    userID=data['id']
+    type=data['type']
+    if frames_data:
+        return create_video_from_frames(id,type)
+    else:
+        t=time.time()
 
-    operation = {
-        # report_fitness_realtime()
-    }
+        frames_name = f'{t}.txt'
+        frames_path=os.path.join(temp_path,frames_name)
 
-    # 生成 base64 编码的字符串
-    processed_frame_base64 = base64.b64encode(processed_frame).decode('utf-8')
-    # 发送处理后的帧数据到前端
-    emit('processed_frame', {
-        'data': 'data:image/jpeg;base64,' + processed_frame_base64,
-        'client_id': id
-    }, to=id)
-    return
+        frames=[]#帧列表
+        for i, frame in enumerate(frames_data):
+            frame_path = os.path.join(temp_path, f'{t}_frames_{i}.npy')
+            np.save(frame_path, frame)#保存每一帧
+            frames.append(frame_path)
 
-# @report.route('/yoga_mess')
+        with open(frames_path, 'w') as file:
+            for line in frames:
+                file.write(','.join(str(item) for item in line) + '\n')
+
+        return report_fitness_realtime(frames_path,userID)
+
 @socketio.on('yoga')
-def handle_yoga_message(frame_data,id):#Base64 编码的字符串/二进制数据
-    # 解码 base64 数据
-    image_bytes = base64.b64decode(frame_data.split(',')[1])
-    report_yoga_realtime(image_bytes,id)
+def fitness_realtime(data):
+    frames_data = data['frames']
+    userID=data['id']
+    type=data['type']
+    if frames_data:
+        return create_video_from_frames(id,type)
+    else:
+        t=time.time()
 
-    operation={
-        # report_yoga_realtime()
-    }
+        frames_name = f'{t}.txt'
+        frames_path=os.path.join(temp_path,frames_name)
 
-    # 生成 base64 编码的字符串
-    processed_frame_base64 = base64.b64encode(processed_frame).decode('utf-8')
-    # 发送处理后的帧数据到前端
-    emit('processed_frame', {
-        'data': 'data:image/jpeg;base64,' + processed_frame_base64,
-        'client_id': id
-    }, to=id)
-        # print('received message: ' + data)
-    # # 向客户端发送一个回复
-    # socketio.emit('response', {'data': 'Message received!'})
-    return
+        frames=[]#帧列表
+        for i, frame in enumerate(frames_data):
+            frame_path = os.path.join(temp_path, f'{t}_frames_{i}.npy')
+            np.save(frame_path, frame)#保存每一帧
+            frames.append(frame_path)
+
+        with open(frames_path, 'w') as file:
+            for line in frames:
+                file.write(','.join(str(item) for item in line) + '\n')
+
+        return report_yoga_realtime(frames_path,userID)
+
+
+# @report.route('/fit_mess')
+# @socketio.on('fitness')
+# def handle_fitness_message(frame_data,id):#Base64 编码的字符串/二进制数据
+#     # 解码 base64 数据
+#     image_bytes = base64.b64decode(frame_data.split(',')[1])
+#     report_fitness_realtime(image_bytes,id)
+#
+#     operation = {
+#         # report_fitness_realtime()
+#     }
+#
+#     # 生成 base64 编码的字符串
+#     processed_frame_base64 = base64.b64encode(processed_frame).decode('utf-8')
+#     # 发送处理后的帧数据到前端
+#     emit('processed_frame', {
+#         'data': 'data:image/jpeg;base64,' + processed_frame_base64,
+#         'client_id': id
+#     }, to=id)
+#     return
+#
+# # @report.route('/yoga_mess')
+# @socketio.on('yoga')
+# def handle_yoga_message(frame_data,id):#Base64 编码的字符串/二进制数据
+#     # 解码 base64 数据
+#     image_bytes = base64.b64decode(frame_data.split(',')[1])
+#     report_yoga_realtime(image_bytes,id)
+#
+#     operation={
+#         # report_yoga_realtime()
+#     }
+#
+#     # 生成 base64 编码的字符串
+#     processed_frame_base64 = base64.b64encode(processed_frame).decode('utf-8')
+#     # 发送处理后的帧数据到前端
+#     emit('processed_frame', {
+#         'data': 'data:image/jpeg;base64,' + processed_frame_base64,
+#         'client_id': id
+#     }, to=id)
+#         # print('received message: ' + data)
+#     # # 向客户端发送一个回复
+#     # socketio.emit('response', {'data': 'Message received!'})
+#     return
 

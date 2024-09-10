@@ -174,7 +174,7 @@ def imgProcess(image, yoga_model):
     return predicted_class_index
 
 
-def yogaPoseDetect(pose_mode, detect_model, video_path=0, video_save_dir=None):
+def yogaPoseDetect(pose_mode, detect_model, video_path=0, video_save_dir=None, save_name=None):
     model = YOLO(pose_mode)
     yoga_model = load_yoga_model(detect_model)
 
@@ -189,15 +189,16 @@ def yogaPoseDetect(pose_mode, detect_model, video_path=0, video_save_dir=None):
 
     # For save result video
     output = None
-    if video_save_dir is not None:
-        save_dir = os.path.join(video_save_dir, datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
-        if not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        # 编码器：“DIVX"、”MJPG"、“XVID”、“X264"; XVID MPEG4 Codec
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-        output = cv2.VideoWriter(os.path.join(save_dir, 'result.mp4'), fourcc, fps, size)
+    #if video_save_dir is not None:
+    save_dir = os.path.join(video_save_dir, save_name)
+    # if not os.path.exists(save_dir):
+    #     os.makedirs(save_dir)
+    # 编码器：“DIVX"、”MJPG"、“XVID”、“X264"; XVID MPEG4 Codec
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+    output = cv2.VideoWriter(os.path.join(video_save_dir, save_name), fourcc, fps, size)
+
 
     while True:
         success, img = cap.read()
@@ -239,6 +240,34 @@ def yogaPoseDetect(pose_mode, detect_model, video_path=0, video_save_dir=None):
         output.release()
     cv2.destroyAllWindows()
 
+def yogaPoseDetectByFrames(model # loaded yolo model
+                           ,yoga_model  # loaded yoga-model.h5
+                           ,frames # list of frames
+                           ):
+    # store result
+    result_frames=[]
+    while len(frames)!=0:
+        img=frames[0]
+        frames.pop(0)
+        # 执行YOLO推理
+        results = model(img)
+
+        for r in results:
+            boxes = r.boxes
+            for box in boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                conf = round(float(box.conf[0]), 2)
+                id = int(box.cls[0])
+                class_name = classNames[id]
+
+                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+                if class_name == "person":
+                    cropped_img = img[y1:y2, x1:x2]
+                    predicted_pose = imgProcess(cropped_img,yoga_model)
+                    cvzone.putTextRect(img, f'{yoga_poses[predicted_pose]}', (max(0, x1), max(40, y1)))
+                    result_frames.append(img)
+    return result_frames
 
 # if __name__ == '__main__':
 #     yogaPoseDetect(pose_mode='yolov8n.pt',  # 关键点检测模型
