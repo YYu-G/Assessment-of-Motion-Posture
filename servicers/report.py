@@ -1,10 +1,10 @@
-from flask import jsonify, send_file, send_from_directory
+from flask import jsonify
 from datetime import datetime
 from moviepy.video.compositing.concatenate import concatenate_videoclips
 import time
 
 
-from config import rep_file_path,temp_path,model_file_path
+from config import rep_file_path,temp_path
 from daos.model import model_dao
 from daos.reportData import report_dao
 from moviepy.editor import ImageSequenceClip
@@ -13,7 +13,6 @@ import os
 import image.image
 
 from modelInference.counter import exercise_counter
-from modelInference.image import shape_image
 from modelInference.yoga import yogaPoseDetect
 
 import shutil
@@ -78,9 +77,10 @@ def report_fitness(ownerID,video_name,tp,model_id):
     #'../yolov8s-pose.pt'
     exercise_counter(pose_model='modelFile/yolov8s-pose.pt',  # pose模型
                     detector_model_path='modelFile',  # 训练完的检测姿态模型路径
-                    detector_model_file='1.pt',#模型名称
+                    detector_model_file='best_model2.pt',#模型名称
                     video_file=tp,  # 视频文件
-                    video_save_dir=save_path) # 视频保存路径)
+                    video_save_dir=rep_file_path,
+                     video_save_name=save_name) # 视频保存路径)
 
     # 获取当前的日期和时间
     now = datetime.now()
@@ -89,9 +89,7 @@ def report_fitness(ownerID,video_name,tp,model_id):
     id = report_dao.add_report(ownerID, 'fitness', des, save_name, current_date)
 
     return jsonify({
-        'urls': [
-            f'/api/download/{save_name}'
-        ]
+        'url':f'/api/download/{save_name}'
     })
     #return send_file(save_path,mimetype='video/mp4')
 
@@ -107,6 +105,7 @@ def report_yoga(owner,video_name,tp,model_id):
     save_path=os.path.join(rep_file_path,save_name)
 
     yogaPoseDetect('modelFile/yolov8n.pt','modelFile/yoga-model.h5',tp,save_path)
+    #yogaPoseDetect('modelFile/yolov8n.pt', 'modelFile/yoga-model.h5', 0, save_path)
 
     # 获取当前的日期和时间
     now = datetime.now()
@@ -115,9 +114,8 @@ def report_yoga(owner,video_name,tp,model_id):
     id = report_dao.add_report(owner, 'yoga', des, save_name, current_date)
 
     return jsonify({
-        'urls': [
+        'url':
             f'/api/download/{save_name}'
-        ]
     })
 
 # 一个函数来生成视频文件并保存

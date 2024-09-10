@@ -1,7 +1,6 @@
 import base64
 import os
 
-from tensorflow import timestamp
 
 from config import temp_path
 from datetime import datetime
@@ -54,7 +53,8 @@ def fitness():
     timestamp=time.time()
     temp_name=f'{timestamp}_{video.filename}'
     tp=os.path.join(temp_path,temp_name)
-
+    print('tp')
+    video.save(tp)
     return report_fitness(owner,video.filename,tp,1)
 
 @report.route('/yoga',methods=['POST'])
@@ -70,7 +70,7 @@ def yoga():
     timestamp = time.time()
     temp_name = f'{timestamp}_{video.filename}'
     tp = os.path.join(temp_path, temp_name)
-
+    video.save(tp)
     return report_yoga(owner,video.filename,tp,1)
 
 # @report.route('/fit_mess')
@@ -115,3 +115,4 @@ def handle_yoga_message(frame_data,id):#Base64 编码的字符串/二进制数�
     # # 向客户端发送一个回复
     # socketio.emit('response', {'data': 'Message received!'})
     return
+

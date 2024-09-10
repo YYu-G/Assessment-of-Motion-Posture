@@ -7,7 +7,7 @@ from servicers.manager import (manager_show_user,manager_screen_user,manager_sho
 
 manager = Blueprint('manager', __name__)
 
-@manager.route('/user',methods=['GET'])
+@manager.route('/user',methods=['POST'])
 @jwt_required()
 def show_user():
     id = get_jwt_identity()
@@ -16,7 +16,7 @@ def show_user():
     size=data['pageSize']
     return manager_show_user(id,page,size)
 
-@manager.route('/model',methods=['GET'])
+@manager.route('/model',methods=['POST'])
 @jwt_required()
 def show_model():
     id = get_jwt_identity()
@@ -25,7 +25,7 @@ def show_model():
     size = data['pageSize']
     return manager_show_model(id,page,size)
 
-@manager.route('/screen_user',methods=['GET'])
+@manager.route('/screen_user',methods=['POST'])
 def screen_user():
     data=request.json
     id=data.get('userID')
@@ -62,6 +62,7 @@ def screen_models():
     return manager_screen_models(name, old_version, new_version, type1, type2, type3)
 
 @manager.route('/add_model',methods=['POST'])
+@jwt_required()
 def add_model():
     id = get_jwt_identity()
     data=request.form
@@ -80,6 +81,7 @@ def add_model():
     return manager_add_model(id,version,type,name,file)
 
 @manager.route('/delete_model',methods=['DELETE'])
+@jwt_required()
 def delete_model():
     id = get_jwt_identity()
     data=request.json
@@ -93,6 +95,7 @@ def delete_models():
     return manager_delete_models(list)
 
 @manager.route('/add_user',methods=['POST'])
+@jwt_required()
 def add_user():
     id = get_jwt_identity()
     data=request.json
@@ -100,16 +103,20 @@ def add_user():
     phone = data.get('userPhoneNumber')
     password = data.get('password')
     age = data.get('userAge')
+    print('ok')
+    print(password)
     return manager_add_user(id,name, phone, password, age)
 
-@manager.route('/delete_user',methods=['DELETE'])
-def delete_user():
+@manager.route('/delete_user/<userID>',methods=['DELETE'])
+@jwt_required()
+def delete_user(userID):
     id = get_jwt_identity()
-    data = request.json
-    uID = data.get('userID')
-    return manager_delete_user(id, uID)
+    # data = request.json
+    # uID = data.get('userID')
+    return manager_delete_user(id, userID)
 
 @manager.route('/modify_user',methods=['POST'])
+@jwt_required()
 def modify_user():
     id=get_jwt_identity()
     data=request.json

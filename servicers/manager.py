@@ -12,7 +12,7 @@ def manager_show_user(id,page,size):
     #     jwt.decode(token, SECRET_KEY, algorithms=[algorithm])
     u=user_dao.search_user_by_id(id)
     if u and user_dao.verify_manager(u):
-        user_list=user_dao.all_user()
+        user_list=user_dao.all_user(u)
         user_page=user_list[(page-1)*size:page*size]
         users=[{
             'userID':u.userID,
@@ -37,7 +37,7 @@ def manager_show_user(id,page,size):
             'message': '验证失败'
         })
 
-def manager_add_user(id,name,phone,age,password):
+def manager_add_user(id,name,phone,password,age):
     m=user_dao.search_user_by_id(id)
     if m and user_dao.verify_manager(m):
         u = user_dao.search_user_by_phoneNumber(phone)
@@ -96,32 +96,33 @@ def manager_modify_user(id,uID,phone,name,password):
             'message': '无权限'
         })
 
-def manager_screen_user(id,mID):#指定查找
-    m=user_dao.search_user_by_id(mID)
-    if m and user_dao.verify_manager(m):
-        if len(id)==0:
-            return jsonify({
-                'code': 1,
-                'message': '空的ID或手机号'
-            })
-        u=user_dao.search_user_by_id(id)
-        if u:
-            data = u.to_dict()
-            return jsonify({
-                'code': 0,
-                'message': '查找成功',
-                'data': data
-            })
-        else:
-            return jsonify({
-                'code': 2,
-                'message': '用户不存在'
-            })
+def manager_screen_user(id):#指定查找
+    # m=user_dao.search_user_by_id(id)
+    # if m and user_dao.verify_manager(m):
+    #     if len(id)==0:
+    #         return jsonify({
+    #             'code': 1,
+    #             'message': '空的ID或手机号'
+    #         })
+    u=user_dao.search_user_by_id(id)
+    if u:
+        data = u.to_dict()
+        return jsonify({
+            'code': 0,
+            'message': '查找成功',
+            'data': data
+        })
     else:
         return jsonify({
-            'code': 3,
-            'message': '无权限'
+            'code': 2,
+            'message': '用户不存在'
         })
+
+    # else:
+    #     return jsonify({
+    #         'code': 3,
+    #         'message': '无权限'
+    #     })
 
 
 
