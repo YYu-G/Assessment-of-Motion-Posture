@@ -381,22 +381,21 @@ def exercise_counter(pose_model, detector_model_path, detector_model_file, video
     for i in range(len(sports_type)):
         print(f'{idx_2_category[str(i)]} : {counter[i]}')
 
-states=[False,False,False]
+
 
 def exercise_counter_by_frames(model  ,#yolov8 model
                                 detect_model, # detect model
                                frames,  # a set of frames need to process
                                idx_2_category,  # json file of sports type index
-                                 # last time states
+                               counter, #current times of all types of sports
+                               states=[False,False,False],  # last time states
                                isShow=True,
                                sports_type=SPORTS_TYPE):
+
     # Set variables to record motion status
-    reaching = states[0]
-    reaching_last = states[1]
-    state_keep = states[2]
-    counter = []
-    for i in range(len(sports_type)):
-        counter.append(0)
+    reaching=states[0]
+    reaching_last=states[1]
+    state_keep=states[2]
 
     result_frames=[] #store the result
 
@@ -416,20 +415,6 @@ def exercise_counter_by_frames(model  ,#yolov8 model
         # Run YOLOv8 inference on the frame
         results = model(frame)
         # Preventing errors caused by special scenarios
-        if results[0].keypoints.shape[1] == 0:
-            if isShow:
-                put_text(
-                    frame, 'No Object', counter[idx],
-                    results[0].speed['inference']*1000, plot_size_redio
-                )
-                scale = 1280 / max(frame.shape[0], frame.shape[1])
-                show_frame = cv2.resize(frame, (0, 0), fx=scale, fy=scale)
-                cv2.imshow("YOLOv8 Inference", show_frame)
-
-            # Break the loop if 'q' is pressed
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
-            continue
 
         # make sure exercise type
         pose_frame = cv2.resize(frame, (512, 512), interpolation=cv2.INTER_CUBIC)
@@ -437,9 +422,9 @@ def exercise_counter_by_frames(model  ,#yolov8 model
         pose_data = pose_result[0].keypoints.data[0, :, 0:2]
         pose_key_point_frames.append(pose_data.tolist())
         idx = 0
-        if len(pose_key_point_frames) == 1:  # 5 -> get_data_from_video.py: collect_data(data_len=5)
+        if len(pose_key_point_frames) == 5:  # 5 -> get_data_from_video.py: collect_data(data_len=5)
             input_data = torch.tensor(pose_key_point_frames)
-            input_data = input_data.reshape(1, INPUT_DIM)
+            input_data = input_data.reshape(5, INPUT_DIM)
             x_mean, x_std = torch.mean(input_data), torch.std(input_data)
             input_data = (input_data - x_mean) / x_std
             input_data = input_data.unsqueeze(dim=0)
@@ -474,13 +459,16 @@ def exercise_counter_by_frames(model  ,#yolov8 model
         if reaching != reaching_last:
             reaching_last = reaching
             if reaching:
-                state_keep = True
+                state_keep =True
             if not reaching and state_keep:
                 counter[idx] += 1
                 state_keep = False
 
         during_time = time.time() - start_time
         print(f'During time for the exercise counter per frame ----> {during_time}')
+        states[0]=reaching
+        states[1]=reaching_last
+        states[2]=state_keep
 
         # Visualize the results on the frame
         annotated_frame = plot(
@@ -507,16 +495,8 @@ def exercise_counter_by_frames(model  ,#yolov8 model
     for i in range(len(sports_type)):
       print(f'{idx_2_category[str(i)]} : {counter[i]}')
 
-    states[0]=reaching
-    states[1]=reaching_last
-    states[2]=state_keep
 
-    returndata=jsonify({
-        "frames":result_frames,
-        "states":[reaching,reaching_last,state_keep],
-        "counts":counter
-    })
-    return returndata
+    return result_frames,states,counter
 
 if __name__ == '__main__':
     a=None

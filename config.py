@@ -6,12 +6,11 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from ultralytics import YOLO
-
-from Inference import LSTM
+import concurrent.futures
 import torch
 
 
-DEVICE = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+DEVICE ="cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 # LSTM parameters
 INPUT_DIM = 34  # 17 keypoints (x, y)
 HIDDEN_DIM = 8  # hidden layers
@@ -45,14 +44,17 @@ socketio = SocketIO(app, cors_allowed_origins='*')
 s_state=[False,False,False]
 s_counter=0
 
-# Load the YOLOv8 model
-model = YOLO('modelFile/yolov8n.pt')
-# Load exersice model
-with open(os.path.join('modelFile', 'idx_2_category.json'), 'r') as f:
-    idx_2_category = json.load(f)
-# detect_model = LSTM(17*2, 8, 2, 3, model.device)
-detect_model = LSTM(INPUT_DIM, HIDDEN_DIM, NUM_LAYERS, OUTPUT_DIM).to(DEVICE)
-model_path = os.path.join('modelFile', 'best_model2.pt')
-model_weight = torch.load(model_path)
-detect_model.load_state_dict(model_weight)
+# Thread pool for concurrent processing
+executor = concurrent.futures.ThreadPoolExecutor()
+
+# # Load the YOLOv8 model
+# model = YOLO('modelFile/yolov8n.pt')
+# # Load exersice model
+# with open(os.path.join('modelFile', 'idx_2_category.json'), 'r') as f:
+#     idx_2_category = json.load(f)
+# # detect_model = LSTM(17*2, 8, 2, 3, model.device)
+# detect_model = LSTM(INPUT_DIM, HIDDEN_DIM, NUM_LAYERS, OUTPUT_DIM)
+# model_path = os.path.join('modelFile', 'best_model2.pt')
+# model_weight = torch.load(model_path)
+# detect_model.load_state_dict(model_weight)
 

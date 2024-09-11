@@ -4,20 +4,44 @@ import io
 
 import cv2
 import numpy as np
+import torch
 
 from PIL import Image
 from tensorflow.python.ops.signal.shape_ops import frame
-
-from config import temp_path,s_state
+from ultralytics import YOLO
+from Inference import LSTM
+from config import temp_path,s_state,executor
 from datetime import datetime
 import time
 from flask_socketio import SocketIO, emit
-from flask import Blueprint, request, jsonify
-from config import socketio
+from flask import Blueprint, request, jsonify, json
+from config import socketio,INPUT_DIM, HIDDEN_DIM, NUM_LAYERS, OUTPUT_DIM
+from modelInference.yoga import load_yoga_model
 from servicers.report import (report_shape,report_fitness,report_yoga,
                               report_fitness_realtime,report_yoga_realtime,create_video_from_frames)
 
 report = Blueprint('report', __name__)
+
+
+# Load the YOLOv8 model of yoga
+model = YOLO('modelFile/yolov8n.pt')
+#load yoga model
+yoga_model=load_yoga_model('modelFile/yoga-model.h5')
+
+
+#load yolo of exercises
+ex_model=YOLO('modelFile/yolov8s-pose.pt')
+# Load exersice model
+
+with open(os.path.join('modelFile', 'idx_2_category.json'), 'r') as f:
+    idx_2_category = json.load(f)
+detect_model = LSTM(INPUT_DIM, HIDDEN_DIM, NUM_LAYERS, OUTPUT_DIM)
+model_path = os.path.join('modelFile', 'best_model2.pt')
+model_weight = torch.load(model_path, map_location=torch.device('cpu'))
+# model_weight = torch.load(model_path)
+detect_model.load_state_dict(model_weight)
+
+yoga_model=load_yoga_model('modelFile/yoga-model.h5')
 
 @report.route('/shape',methods=['POST'])
 def shape():
@@ -82,70 +106,55 @@ def yoga():
 
 @socketio.on('fitness')
 def fitness_realtime(data):
-    #frames_data = data['frames']
-    # 将Base64字符串解码为图像
-    # image_data = base64.b64decode(data.split(',')[1])
-    # image = Image.open(io.BytesIO(image_data))
-    #
-    # # 将PIL图像转换为numpy数组
-    # frame = np.array(image)
+
     frame=np.frombuffer(data,np.uint8)
     im=cv2.imdecode(frame,cv2.IMREAD_COLOR)
     userID=1
-
-    # userID=data['id']
-    # type=data['type']
-    # state=data['state']
-
-    # if frame==None:
-    #     print('video')
-    #     return create_video_from_frames(id,'fitness')
 
     t=time.time()
 
     frames_name = f'{t}.txt'
     frames_path=os.path.join(temp_path,frames_name)
 
-    frames=[]#帧列表
-    frame_path = os.path.join(temp_path, f'{t}_frames.png')
+    #frames=[]#帧列表
+    frame_path = os.path.join(temp_path, f'{t}_frames.jpg')
     cv2.imwrite(frame_path, im)  # 保存每一帧
-    frames.append(frame_path)
-    # for i, frame in enumerate(frames_data):
-    #     frame_path = os.path.join(temp_path, f'{t}_frames_{i}.npy')
-    #     np.save(frame_path, frame)#保存每一帧
-    #     frames.append(frame_path)
+    #frames.append(frame_path)
 
-    with open(frames_path, 'w') as file:
-        for line in frames:
-            file.write(','.join(str(item) for item in line) + '\n')
+    # with open(frames_path, 'w') as file:
+    #     for line in frames:
+    #         file.write(','.join(str(item) for item in line) + '\n')
 
-    return report_fitness_realtime(frame_path,userID,s_state)
+    #future = executor.submit(report_fitness_realtime, data)
 
+    result=report_fitness_realtime(frame_path,userID,ex_model,detect_model,idx_2_category)
+
+    socketio.emit('response',result)
+    return 0
 
 @socketio.on('yoga')
-def fitness_realtime(data):
-    frames_data = data['frames']
-    userID=data['id']
-    type=data['type']
-    if frames_data:
-        return create_video_from_frames(id,type)
-    else:
-        t=time.time()
+def yoga_realtime(data):
 
-        frames_name = f'{t}.txt'
-        frames_path=os.path.join(temp_path,frames_name)
+    frame = np.frombuffer(data, np.uint8)
+    im = cv2.imdecode(frame, cv2.IMREAD_COLOR)
+    userID=1
+    type='yoga'
 
-        frames=[]#帧列表
-        for i, frame in enumerate(frames_data):
-            frame_path = os.path.join(temp_path, f'{t}_frames_{i}.npy')
-            np.save(frame_path, frame)#保存每一帧
-            frames.append(frame_path)
+    t=time.time()
 
-        with open(frames_path, 'w') as file:
-            for line in frames:
-                file.write(','.join(str(item) for item in line) + '\n')
+    frames_name = f'{t}.jpg'
+    frames_path=os.path.join(temp_path,frames_name)
 
-        return report_yoga_realtime(frames_path,userID)
+    frames=[]#帧列表
+    frame_path = os.path.join(temp_path, f'{t}_frames.jpg')
+    cv2.imwrite(frame_path, im)  # 保存每一帧
+
+    result= report_yoga_realtime(frame_path,userID,model,yoga_model)
+
+    socketio.emit('response', result)
+    return 0
+
+
 
 
 # @report.route('/fit_mess')
