@@ -1,9 +1,14 @@
 import base64
 import os
+import io
+
+import cv2
 import numpy as np
 
+from PIL import Image
+from tensorflow.python.ops.signal.shape_ops import frame
 
-from config import temp_path
+from config import temp_path,s_state
 from datetime import datetime
 import time
 from flask_socketio import SocketIO, emit
@@ -77,28 +82,45 @@ def yoga():
 
 @socketio.on('fitness')
 def fitness_realtime(data):
-    frames_data = data['frames']
-    userID=data['id']
-    type=data['type']
-    if frames_data:
-        return create_video_from_frames(id,type)
-    else:
-        t=time.time()
+    #frames_data = data['frames']
+    # 将Base64字符串解码为图像
+    # image_data = base64.b64decode(data.split(',')[1])
+    # image = Image.open(io.BytesIO(image_data))
+    #
+    # # 将PIL图像转换为numpy数组
+    # frame = np.array(image)
+    frame=np.frombuffer(data,np.uint8)
+    im=cv2.imdecode(frame,cv2.IMREAD_COLOR)
+    userID=1
 
-        frames_name = f'{t}.txt'
-        frames_path=os.path.join(temp_path,frames_name)
+    # userID=data['id']
+    # type=data['type']
+    # state=data['state']
 
-        frames=[]#帧列表
-        for i, frame in enumerate(frames_data):
-            frame_path = os.path.join(temp_path, f'{t}_frames_{i}.npy')
-            np.save(frame_path, frame)#保存每一帧
-            frames.append(frame_path)
+    # if frame==None:
+    #     print('video')
+    #     return create_video_from_frames(id,'fitness')
 
-        with open(frames_path, 'w') as file:
-            for line in frames:
-                file.write(','.join(str(item) for item in line) + '\n')
+    t=time.time()
 
-        return report_fitness_realtime(frames_path,userID)
+    frames_name = f'{t}.txt'
+    frames_path=os.path.join(temp_path,frames_name)
+
+    frames=[]#帧列表
+    frame_path = os.path.join(temp_path, f'{t}_frames.png')
+    cv2.imwrite(frame_path, im)  # 保存每一帧
+    frames.append(frame_path)
+    # for i, frame in enumerate(frames_data):
+    #     frame_path = os.path.join(temp_path, f'{t}_frames_{i}.npy')
+    #     np.save(frame_path, frame)#保存每一帧
+    #     frames.append(frame_path)
+
+    with open(frames_path, 'w') as file:
+        for line in frames:
+            file.write(','.join(str(item) for item in line) + '\n')
+
+    return report_fitness_realtime(frame_path,userID,s_state)
+
 
 @socketio.on('yoga')
 def fitness_realtime(data):

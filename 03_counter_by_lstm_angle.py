@@ -6,11 +6,12 @@ import json
 import datetime
 import argparse
 
-from flask import jsonify
+from sqlalchemy.util import counter
 from ultralytics import YOLO
 from ultralytics.utils.plotting import Annotator, Colors
 from copy import deepcopy
 from Inference import LSTM
+#from for_detect.Inference import LSTM
 from config import *
 import time
 
@@ -217,7 +218,7 @@ def pose_detect(model, input_pose_frames, idx_2_category_dict):
     return idx_2_category_dict[str(result.argmax().cpu().item())]
 
 
-def exercise_counter(pose_model, detector_model_path, detector_model_file, video_file, video_save_dir=None, video_save_name=None, isShow=True, sports_type=SPORTS_TYPE):
+def exercise_counter(pose_model, detector_model_path, detector_model_file, video_file, video_save_dir=None, isShow=True, sports_type=SPORTS_TYPE):
     # Obtain relevant parameters
     # args = parse_args()
     # Load the YOLOv8 model
@@ -229,7 +230,7 @@ def exercise_counter(pose_model, detector_model_path, detector_model_file, video
     # detect_model = LSTM(17*2, 8, 2, 3, model.device)
     detect_model = LSTM(INPUT_DIM, HIDDEN_DIM, NUM_LAYERS, OUTPUT_DIM).to(DEVICE)
     model_path = os.path.join(detector_model_path, detector_model_file)
-    model_weight = torch.load(model_path, map_location=torch.device('cpu'))
+    model_weight = torch.load(model_path)
     detect_model.load_state_dict(model_weight)
 
     # Open the video file or camera
@@ -238,19 +239,16 @@ def exercise_counter(pose_model, detector_model_path, detector_model_file, video
     else:
         cap = cv2.VideoCapture(video_file)
 
-        # For saving result video 保存视频
-        if video_save_dir is not None and video_save_name is not None:
-            save_path = os.path.join(video_save_dir, f'{video_save_name}')
-
-            # 视频编码器（使用 mp4 编码器）
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-
-            # 获取原始视频的帧率（FPS）和尺寸
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
-
-            # 创建 VideoWriter 对象，用于保存处理后的帧为视频文件
-            output = cv2.VideoWriter(save_path, fourcc, fps, size)
+    # For save result video
+    if video_save_dir is not None:
+        save_dir = os.path.join(video_save_dir, datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        # 编码器：“DIVX"、”MJPG"、“XVID”、“X264"; XVID MPEG4 Codec
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+        output = cv2.VideoWriter(os.path.join(save_dir, 'result.mp4'), fourcc, fps, size)
 
     # Set variables to record motion status
     reaching = False
@@ -381,15 +379,15 @@ def exercise_counter(pose_model, detector_model_path, detector_model_file, video
     for i in range(len(sports_type)):
         print(f'{idx_2_category[str(i)]} : {counter[i]}')
 
-states=[False,False,False]
 
 def exercise_counter_by_frames(model  ,#yolov8 model
                                 detect_model, # detect model
                                frames,  # a set of frames need to process
                                idx_2_category,  # json file of sports type index
-                                 # last time states
+                               states=[False,False,False],  # last time states
                                isShow=True,
                                sports_type=SPORTS_TYPE):
+
     # Set variables to record motion status
     reaching = states[0]
     reaching_last = states[1]
@@ -407,7 +405,7 @@ def exercise_counter_by_frames(model  ,#yolov8 model
     # Loop through the video frames
     while len(frames) !=0:
         # Read a frame from the video
-        frame = frames[0]
+        success, frame = frames[0]
         frames.pop(0)
         # Set plot size redio for inputs with different resolutions
         plot_size_redio = max(frame.shape[1] / 960, frame.shape[0] / 540)
@@ -437,9 +435,9 @@ def exercise_counter_by_frames(model  ,#yolov8 model
         pose_data = pose_result[0].keypoints.data[0, :, 0:2]
         pose_key_point_frames.append(pose_data.tolist())
         idx = 0
-        if len(pose_key_point_frames) == 1:  # 5 -> get_data_from_video.py: collect_data(data_len=5)
+        if len(pose_key_point_frames) == 5:  # 5 -> get_data_from_video.py: collect_data(data_len=5)
             input_data = torch.tensor(pose_key_point_frames)
-            input_data = input_data.reshape(1, INPUT_DIM)
+            input_data = input_data.reshape(5, INPUT_DIM)
             x_mean, x_std = torch.mean(input_data), torch.std(input_data)
             input_data = (input_data - x_mean) / x_std
             input_data = input_data.unsqueeze(dim=0)
@@ -507,25 +505,80 @@ def exercise_counter_by_frames(model  ,#yolov8 model
     for i in range(len(sports_type)):
       print(f'{idx_2_category[str(i)]} : {counter[i]}')
 
-    states[0]=reaching
-    states[1]=reaching_last
-    states[2]=state_keep
-
-    returndata=jsonify({
-        "frames":result_frames,
-        "states":[reaching,reaching_last,state_keep],
-        "counts":counter
-    })
+    returndata={"frames":result_frames,
+                "states":[reaching,reaching_last,state_keep],
+                "counts":counter
+    }
     return returndata
 
-if __name__ == '__main__':
-    a=None
-    if a is None:
+def exercise_counter_by_video(pose_model, detector_model_path, detector_model_file, video_file, video_save_dir, video_save_name,
+                              sports_type=SPORTS_TYPE):
+
+    #load yolo model
+    model = YOLO(pose_model)
+
+    # Load exersice model
+    with open(os.path.join(detector_model_path, 'idx_2_category.json'), 'r') as f:
+        idx_2_category = json.load(f)
+    # detect_model = LSTM(17*2, 8, 2, 3, model.device)
+    detect_model = LSTM(INPUT_DIM, HIDDEN_DIM, NUM_LAYERS, OUTPUT_DIM).to(DEVICE)
+    model_path = os.path.join(detector_model_path, detector_model_file)
+    model_weight = torch.load(model_path)
+    detect_model.load_state_dict(model_weight)
+
+    #define sports counter
+    totalcounter = []
+    for i in range(len(sports_type)):
+        totalcounter.append(0)
+
+    # For saving result video 保存视频
+    if video_save_dir is not None and video_save_name is not None:
+        save_path = os.path.join(video_save_dir, f'{video_save_name}.mp4')
+
+        # 视频编码器（使用 mp4 编码器）
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+        # 获取原始视频的帧率（FPS）和尺寸
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        size = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
+
+        # 创建 VideoWriter 对象，用于保存处理后的帧为视频文件
+        output = cv2.VideoWriter(save_path, fourcc, fps, size)
+
+        #open index json file
+        with open(os.path.join(detector_model_path, 'idx_2_category.json'), 'r') as f:
+            idx_2_category = json.load(f)
+
+        # define whether show on the screen  default false
+        ishow=False
+
+    while True :
+        frames=[]  # produce frames
+        states=[False,False,False] #defalut states
+        #run main function
+        returndata=exercise_counter_by_frames(model,detect_model,frames,idx_2_category,states,ishow,sports_type)
+
+        # update states
+        states=returndata[states]
+
+        #add result_frames to output
+        for e in returndata[frames] :
+            output.write(returndata[frames][e])
+
+        #cal counter
+        for e in returndata[counter] :
+            totalcounter[e]+=returndata[counter][e]
+
+    if video_save_dir is not None:
+      output.release()
+
+
+if __name__ == '__main__' :
+
       exercise_counter(pose_model='modelFile/yolov8s-pose.pt',  # pose模型
-                       detector_model_path='../modelFile',  # 训练完的检测姿态模型路径
-                       detector_model_file='best_model2.pt',  #模型名称
-                       video_file='../temp/test_video.mp4',  # 视频文件 若为字符串0，则表示打开摄像头
-                       video_save_dir='reptortFile',  # 视频保存路径
-                       video_save_name = 'save_1'
-                       )
+                      detector_model_path='modelFile',  # 训练完的检测姿态模型路径
+                      detector_model_file='best_model2.pt',
+                      video_file='temp/1725980959.3687475_test_video.mp4',  # 视频文件 若为字符串0，则表示打开摄像头
+                      video_save_dir='reportFile/results'  # 视频保存路径
+                      )
 

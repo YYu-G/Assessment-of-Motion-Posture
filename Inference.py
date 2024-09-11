@@ -6,6 +6,7 @@ import argparse
 import json
 from ultralytics import YOLO
 from config import *
+from  config import DEVICE
 
 
 class LSTM(nn.Module):

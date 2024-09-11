@@ -1,10 +1,12 @@
+import cv2
 from flask import jsonify, send_file
 from datetime import datetime
 from moviepy.video.compositing.concatenate import concatenate_videoclips
 import time
 from moviepy.editor import VideoFileClip
 
-from config import rep_file_path,temp_path
+from config import rep_file_path,temp_path,model
+from config import s_state,s_counter
 from daos.model import model_dao
 from daos.reportData import report_dao
 from moviepy.editor import ImageSequenceClip
@@ -12,7 +14,7 @@ import os
 import numpy as np
 
 from modelInference.image import image
-from modelInference.counter import exercise_counter
+from modelInference.counter import exercise_counter,exercise_counter_by_frames
 from modelInference.yoga import yogaPoseDetect,yogaPoseDetectByFrames
 
 import shutil
@@ -177,21 +179,27 @@ def create_video_from_frames(id,type):
 
     return filename
 
-def report_fitness_realtime(frames_path,id):
+def report_fitness_realtime(frame_path, id, state):
     t = time.time()
 
     frames = []
-    with open(frames_path, 'r+') as file:
-        # 读取文件内容
-        content = file.readlines()
+    f = cv2.imread(frame_path)
+    #f = np.load(frame_path)
+    frames.append(f)
+    # with open(frames_path, 'r+') as file:
+    #     # 读取文件内容
+    #     content = file.readlines()
+    #
+    #     for line in content:
+    #     # 去除行尾的换行符
+    #         frame_path = line.strip()
+    #         f = np.load(frame_path)
+    #         frames.append(f)
 
-        for line in content:
-        # 去除行尾的换行符
-            frame_path = line.strip()
-            f = np.load(frame_path)
-            frames.append(f)
 
-    save_frames = yogaPoseDetectByFrames('modelFile/yolov8n.pt', 'modelFile/yoga-model.h5', frames)
+    save_json=exercise_counter_by_frames(model,'modelFile/best_model2.pt',
+                                           frames,'modelFile/idx_2_category.json')
+    #save_frames = yogaPoseDetectByFrames('modelFile/yolov8n.pt', 'modelFile/yoga-model.h5', frames)
 
     t_frames_name = f'save_{id}.txt'
     save_frames_path = os.path.join(temp_path, t_frames_name)
@@ -202,6 +210,8 @@ def report_fitness_realtime(frames_path,id):
         content = file.readlines()
         # 解析帧列表
     t_frames_dir = [line.strip().split(',') for line in content]
+
+    save_frames=save_json.get('frames')
 
     for i, frame in enumerate(save_frames):
         f_path = os.path.join(temp_path, f'{t}_save_frames_{i}.npy')
@@ -214,8 +224,9 @@ def report_fitness_realtime(frames_path,id):
             file.write(','.join(str(item) for item in line) + '\n')
 
     # frames = [line.strip().split(',') for line in content]
-    return save_frames
 
+
+    return save_frames
 
 def report_yoga_realtime(frames_path,id):
     t = time.time()
@@ -256,6 +267,8 @@ def report_yoga_realtime(frames_path,id):
 
     # frames = [line.strip().split(',') for line in content]
     return save_frames
+
+
 
 # def report_fitness_realtime(image_bytes,id):
 #     timestamp = datetime.utcnow().isoformat()
